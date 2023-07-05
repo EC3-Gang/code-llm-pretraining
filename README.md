@@ -5,11 +5,12 @@
 </div>
 
 ## Model used:
-StableLM base Alpha 3B
+StableLM Base Alpha 3B
 
 ## Dataset used:
 
 The Pile (StableLM Base Alpha 3B) for pretrained model
+
 CodeParrot Clean for both
 
 ### Unconfirmed (Planning)
