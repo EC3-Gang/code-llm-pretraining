@@ -1,4 +1,4 @@
-# Code Generation Models
+<center># Code Generation Models</center>
 
 ## Model used:
 StableLM base Alpha 3B
