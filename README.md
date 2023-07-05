@@ -23,6 +23,7 @@ Code and benchmarks coming in the near future
 ## Credits
 
 Thanks to the [TPU Research Cloud (TRC) program](https://sites.research.google/trc/about/) for providing compute resources
+
 Thanks to the various authors whose code I have used to build this. Most notably, [Lit-GPT by Lightning AI](https://github.com/Lightning-AI/lit-gpt).
 
 ## Contact
