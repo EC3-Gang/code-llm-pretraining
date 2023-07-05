@@ -14,7 +14,7 @@ CodeParrot Clean for both
 
 ### Unconfirmed (Planning)
 
-Arxiv CS papers and other code related datasets without actual mass code pretraining (for custom pretraining)
+Arxiv CS papers and other code related datasets without actual unlabelled code (for custom pretraining)
 
 ## Project underway
 
