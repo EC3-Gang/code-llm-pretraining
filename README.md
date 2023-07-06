@@ -3,17 +3,19 @@
 # Code Generation Models
 
 </div>
+## Overview:
+
+This experiment is mainly to experiment with domain specific pretraining in the context of code generation language models.
 
 ## Model used:
 StableLM Base Alpha 3B
 
 ## Dataset used:
-
 The Pile (StableLM Base Alpha 3B) for pretrained model
 
 CodeParrot Clean for both
 
-### Unconfirmed (Planning)
+#### Unconfirmed (Planning)
 
 Arxiv CS papers and other code related datasets without actual unlabelled code (for custom pretraining)
 
