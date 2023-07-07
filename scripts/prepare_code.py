@@ -42,7 +42,7 @@ def prepare(
     split_dataset["val"] = split_dataset.pop("test")  # rename the test split to val
 
     def process(example):
-        ids = tokenizer.encode(example["text"]).tolist()
+        ids = tokenizer.encode(example["content"]).tolist()
         ids.append(tokenizer.eos_id)
 
         # ids = enc.encode_ordinary(example['text']) # encode_ordinary ignores any special tokens
@@ -52,7 +52,7 @@ def prepare(
         return out
 
     # tokenize the dataset
-    tokenized = split_dataset.map(process, remove_columns=["text"], desc="tokenizing the splits", num_proc=num_proc)
+    tokenized = split_dataset.map(process, remove_columns=["content"], desc="tokenizing the splits", num_proc=num_proc)
 
     # concatenate all the ids in each dataset into one large file we can use for training
     for split, dset in tokenized.items():
