@@ -21,7 +21,7 @@ def prepare(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     seed: int = 42,
     test_size: Union[float, int, None] = 0.0005,
-    mask_inputs: bool = False
+    MASK_INPUTS = False
 ) -> None:
     destination_path.mkdir(parents=True, exist_ok=True)
 
