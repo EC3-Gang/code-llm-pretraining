@@ -91,8 +91,6 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     train_data = np.memmap(str(data_dir / "train.bin"), dtype=np.uint16, mode="r")
     val_data = np.memmap(str(data_dir / "val.bin"), dtype=np.uint16, mode="r")
 
-    print(train_data[1])
-
     config = Config.from_name(name=checkpoint_dir.name)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
@@ -250,6 +248,8 @@ def get_batch(
 
 def get_max_seq_length(data: np.ndarray) -> Tuple[int, int, int]:
     # find out the minimum max_seq_length required during fine-tuning (saves memory!)
+    print(d for d in data)
+    time.sleep(30)
     lengths = [len(d) for d in data]
     max_seq_length = max(lengths)
     longest_seq_ix = lengths.index(max_seq_length)
