@@ -15,7 +15,6 @@ sys.path.append(str(wd))
 
 from lit_gpt import Tokenizer
 
-
 def prepare(
     destination_path: Path = Path("data/code"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
@@ -86,8 +85,8 @@ def prepare_sample(
     example: dict,
     tokenizer: Tokenizer,
     max_length: int,
-    mask_inputs: bool = MASK_INPUTS,
-    ignore_index: int = IGNORE_INDEX,
+    mask_inputs: bool = False
+    ignore_index: int = -1,
 ):
     """Processes a single sample.
 
