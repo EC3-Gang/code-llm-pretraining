@@ -248,7 +248,7 @@ def get_batch(
 
 def get_max_seq_length(data: np.ndarray) -> Tuple[int, int, int]:
     # find out the minimum max_seq_length required during fine-tuning (saves memory!)
-    print(d for d in data)
+    print(d[1] for d in data)
     time.sleep(30)
     lengths = [len(d) for d in data]
     max_seq_length = max(lengths)
