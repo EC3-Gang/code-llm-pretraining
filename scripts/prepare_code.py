@@ -50,10 +50,6 @@ def prepare(
         # note: I think eot should be prepended not appended... hmm. it's called "eot" though...
         out = {"ids": ids, "len": len(ids)}
         return out
-    
-    with open(checkpoint_dir / "lit_config.json", "r") as file:
-        config = json.load(file)
-        max_seq_length = config["block_size"]
 
     # tokenize the dataset
     tokenized = split_dataset.map(process, remove_columns=["content"], desc="tokenizing the splits", num_proc=num_proc)
