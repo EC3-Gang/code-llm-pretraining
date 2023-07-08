@@ -531,7 +531,7 @@ def main():
         weight_decay=CFG.WEIGHT_DECAY, 
         beta_1=0.90, 
         beta_2=0.95, 
-        optimizer_type='deepspeed',  
+        optimizer_type='adamw',  
         use_fsdp=True,
         accelerator=accelerator
     )
