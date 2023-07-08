@@ -24,8 +24,7 @@ from torch.distributed.fsdp import (
     ShardingStrategy,
 )
 from accelerate import Accelerator
-from accelerate.utils import (DummyOptim, DummyScheduler,
-                              InitProcessGroupKwargs)
+from accelerate.utils import DummyOptim, DummyScheduler, InitProcessGroupKwargs
 from datasets import concatenate_datasets, load_dataset
 from lion_pytorch import Lion
 from torch.nn import LayerNorm
