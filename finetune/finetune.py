@@ -4,17 +4,16 @@ import os
 from datetime import timedelta
 from functools import partial
 from itertools import chain
+import sys
+import os
+current = os.path.dirname(os.path.realpath(__file__))
+parent = os.path.dirname(current)
+sys.path.append(parent)
 from lit_gpt import GPT, Tokenizer, Config
-from lit_gpt.model import Block
-import lightning as L
-import numpy as np
 import torch
 from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
-import sys
-import light.fabric as fabric
-import time
 import json
 
 import torch
