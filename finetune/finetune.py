@@ -4,6 +4,18 @@ import os
 from datetime import timedelta
 from functools import partial
 from itertools import chain
+from lit_gpt import GPT, Tokenizer, Config
+from lit_gpt.model import Block
+import lightning as L
+import numpy as np
+import torch
+from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+
+import sys
+import light.fabric as fabric
+import time
+import json
 
 import torch
 from torch.distributed.fsdp import (
@@ -46,7 +58,7 @@ from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 model_id="huggingface MODEL"
 
 nf4_config = BitsAndBytesConfig(
-   load_in_4bit=True,
+   load_in_4bit=False,
    bnb_4bit_quant_type="nf4",
    bnb_4bit_use_double_quant=True,
    bnb_4bit_compute_dtype=torch.bfloat16
@@ -68,10 +80,11 @@ from torchscale.architecture import Decoder
 ################
 
 class CFG:
-    BATCH_SIZE: int = 3
+    DEVICES: int = 8
+    BATCH_SIZE: int = 64 / DEVICES
     GRADIENT_ACCUMULATE_EVERY: int = 1
     SEED: int = 42
-    LEARNING_RATE: float = 3e-4
+    LEARNING_RATE: float = 6e-5
     WEIGHT_DECAY: float = 0.1
     SEQ_LEN: int = 8192
     NUM_CPU: int = multiprocessing.cpu_count()
@@ -81,8 +94,9 @@ class CFG:
     USE_ACTIVATION_CHECKPOINTING: bool = False
     RESUME_FROM_CHECKPOINT: str = None
     CHECKPOINTING_STEPS: int = 1000
-    OUTPUT_DIR: str = "YOUR_OUTPUT_DIR"
-    ENTITY_NAME: str = "YOUR_ENTITY_NAME" #wandb
+    OUTPUT_DIR: str = "/mnt/disks/persist/out"
+    ENTITY_NAME: str = "dshihk" #wandb
+    CHECKPOINT_DIR: str = "checkpoints/stabilityai/stablelm-base-alpha-3b"
 
 
 # helpers
@@ -421,14 +435,14 @@ def build_dataloaders():
     Returns:
         Dataset: The processed dataset ready for training.
     """
-    tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
-    dataset = load_dataset("openwebtext", split="train")
+    tokenizer = AutoTokenizer.from_pretrained("StabilityAI/stablelm-base-alpha-3b")
+    dataset = load_dataset("codeparrot/codeparrot-clean", split="train")
 
     tokenized_dataset = dataset.map(
-        lambda example: tokenizer([t + tokenizer.eos_token for t in example["text"]]),
+        lambda example: tokenizer([t + tokenizer.eos_token for t in example["content"]]),
         batched=True,
         num_proc=CFG.NUM_CPU,
-        remove_columns=["text"],
+        remove_columns=["content"],
     )
 
     block_size = CFG.SEQ_LEN
@@ -482,7 +496,7 @@ def main():
 
 
     accelerator.init_trackers(
-        project_name="Kosmos",
+        project_name="stablelm-finetune",
         config={
             "batch_size": CFG.BATCH_SIZE,
             "gradient_accumulate_every": CFG.GRADIENT_ACCUMULATE_EVERY,
@@ -497,12 +511,14 @@ def main():
     # set seed
 
     set_seed(CFG.SEED)
-
-
+    with open(CFG.CHECKPOINT_DIR / "lit_config.json") as fp:
+        model_config = Config(**json.load(fp))
     # model = Kosmos.to(accelerator.device)
     # model = AutoModelForCausalLM.from_pretrained("YOUR MODEL", load_in_4bit=True, device_map="auto").to(accelerator.device)
+    model = GPT(model_config)
+    model.load_state_dict(torch.load(CFG.CHECKPOINT_DIR / "lit_model.pth"))
 
-    model = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=nf4_config).to(accelerator.device)
+    model.to(accelerator.device)
 
     print_num_params(model, accelerator)
 
