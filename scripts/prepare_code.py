@@ -64,7 +64,7 @@ def prepare(
             mask_inputs=mask_inputs,
             ignore_index=ignore_index,
         )
-        for sample in tqdm(train_set)
+        for sample in tqdm(split_dataset["train"])
     ]
     torch.save(train_set, destination_path / "train.pt")
 
@@ -77,7 +77,7 @@ def prepare(
             mask_inputs=mask_inputs,
             ignore_index=ignore_index,
         )
-        for sample in tqdm(test_set)
+        for sample in tqdm(split_dataset["val"])
     ]
     torch.save(test_set, destination_path / "test.pt")
 
