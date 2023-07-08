@@ -53,7 +53,7 @@ from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 
 
 ########################## FINETUNING CONFIG
-model_id="huggingface MODEL"
+model_id="stabilityai/stablelm-base-alpha-3b"
 
 nf4_config = BitsAndBytesConfig(
    load_in_4bit=False,
@@ -94,7 +94,6 @@ class CFG:
     CHECKPOINTING_STEPS: int = 1000
     OUTPUT_DIR: str = "/mnt/disks/persist/out"
     ENTITY_NAME: str = "dshihk" #wandb
-    CHECKPOINT_DIR: str = "checkpoints/stabilityai/stablelm-base-alpha-3b"
 
 
 # helpers
@@ -441,12 +440,29 @@ def build_dataloaders():
         remove_columns=["content"],
     )
 
+    block_size = CFG.SEQ_LEN
+
+    # Main data processing function that will concatenate all texts from our dataset and generate chunks of block_size.
+    def group_texts(examples):
+        # Concatenate all texts.
+        concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+        total_length = len(concatenated_examples[list(examples.keys())[0]])
+        # We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
+        # customize this part to your needs.
+        if total_length >= block_size:
+            total_length = (total_length // block_size) * block_size
+        # Split by chunks of max_len.
+        result = {
+            k: [t[i : i + block_size] for i in range(0, total_length, block_size)]
+            for k, t in concatenated_examples.items()
+        }
+        return result
+
     train_dataset = tokenized_dataset.map(
         batched=True, num_proc=CFG.NUM_CPU,
     )
 
     return train_dataset
-
 #switch to falconwebdataset
 def build_pre_tokenized():
     d0 = load_dataset("conceptofmind/c4_0-to-20_neox_with_eos_8k", split="train")
@@ -489,14 +505,7 @@ def main():
     # set seed
 
     set_seed(CFG.SEED)
-    with open(CFG.CHECKPOINT_DIR + "/lit_config.json") as fp:
-        model_config = Config(**json.load(fp))
-    # model = Kosmos.to(accelerator.device)
-    # model = AutoModelForCausalLM.from_pretrained("YOUR MODEL", load_in_4bit=True, device_map="auto").to(accelerator.device)
-    model = GPT(model_config)
-    model.load_state_dict(torch.load(CFG.CHECKPOINT_DIR + "/lit_model.pth"))
-
-    model.to(accelerator.device)
+    model = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=nf4_config).to(accelerator.device)
 
     print_num_params(model, accelerator)
 
