@@ -110,10 +110,7 @@ def prepare_sample(
     Finally, both the prompt and the label get tokenized. If desired, all tokens
     in the label that correspond to the original input prompt get masked out (default).
     """
-    full_prompt = generate_prompt(example)
-    full_prompt_and_response = full_prompt + example["output"]
-    encoded_full_prompt = tokenizer.encode(full_prompt, max_length=max_length)
-    encoded_full_prompt_and_response = tokenizer.encode(full_prompt_and_response, eos=True, max_length=max_length)
+    encoded_full_prompt = tokenizer.encode(example, max_length=max_length)
 
     # The labels are the full prompt with response, but with the prompt masked out
     labels = encoded_full_prompt_and_response.clone()
