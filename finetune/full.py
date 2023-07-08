@@ -87,8 +87,10 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     if fabric.global_rank == 0:
         os.makedirs(out_dir, exist_ok=True)
 
-    train_data = torch.load(data_dir / "train.pt")
-    val_data = torch.load(data_dir / "test.pt")
+    train_data = np.memmap(str(data_dir / "train.bin"), dtype=np.uint16, mode="r")
+    val_data = np.memmap(str(data_dir / "val.bin"), dtype=np.uint16, mode="r")
+    
+    train_data, val_data = torch.from_numpy(train_data, val_data)
 
     config = Config.from_name(name=checkpoint_dir.name)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
