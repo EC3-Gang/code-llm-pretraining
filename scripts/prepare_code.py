@@ -85,8 +85,8 @@ def prepare_sample(
     example: dict,
     tokenizer: Tokenizer,
     max_length: int,
-    mask_inputs: bool = False
-    ignore_index: int = -1,
+    mask_inputs: bool = False,
+    ignore_index: int = -1
 ):
     """Processes a single sample.
 
