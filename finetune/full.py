@@ -91,7 +91,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     train_data = np.memmap(str(data_dir / "train.bin"), dtype=np.uint16, mode="r")
     val_data = np.memmap(str(data_dir / "val.bin"), dtype=np.uint16, mode="r")
     
-    train_data, val_data = torch.from_numpy(train_data, val_data)
+    train_data = torch.from_numpy(train_data)
+    val_data = torch.from_numpy(val_data)
 
     config = Config.from_name(name=checkpoint_dir.name)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
