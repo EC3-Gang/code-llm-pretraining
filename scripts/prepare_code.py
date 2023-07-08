@@ -21,7 +21,6 @@ def prepare(
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     seed: int = 42,
     test_size: Union[float, int, None] = 0.0005,
-    MASK_INPUTS = False
 ) -> None:
     destination_path.mkdir(parents=True, exist_ok=True)
 
@@ -56,71 +55,22 @@ def prepare(
     tokenized = split_dataset.map(process, remove_columns=["content"], desc="tokenizing the splits", num_proc=num_proc)
 
     # concatenate all the ids in each dataset into one large file we can use for training
-    print("Processing train split ...")
-    train_set = [
-        prepare_sample(
-            example=sample,
-            tokenizer=tokenizer,
-            max_length=max_seq_length,
-            mask_inputs=mask_inputs,
-            ignore_index=ignore_index,
-        )
-        for sample in tqdm(train_set)
-    ]
-    torch.save(train_set, destination_path / "train.pt")
+    for split, dset in tokenized.items():
+        arr_len = np.sum(dset["len"], dtype=np.int64)
+        filename = destination_path / f"{split}.bin"
+        dtype = np.int16  # (can do since enc.max_token_value == 50256 is < 2**16)
+        arr = np.memmap(str(filename), dtype=dtype, mode="w+", shape=(arr_len,))
+        total_batches = 1024
 
-    print("Processing test split ...")
-    test_set = [
-        prepare_sample(
-            example=sample,
-            tokenizer=tokenizer,
-            max_length=max_seq_length,
-            mask_inputs=mask_inputs,
-            ignore_index=ignore_index,
-        )
-        for sample in tqdm(test_set)
-    ]
-    torch.save(test_set, destination_path / "test.pt")
-
-def prepare_sample(
-    example: dict,
-    tokenizer: Tokenizer,
-    max_length: int,
-    mask_inputs: bool = MASK_INPUTS,
-    ignore_index: int = IGNORE_INDEX,
-):
-    """Processes a single sample.
-
-    Each sample in the dataset consists of:
-    - instruction: A string describing the task
-    - input: A string holding a special input value for the instruction.
-        This only applies to some samples, and in others this is empty.
-    - output: The response string
-
-    This function processes this data to produce a prompt text and a label for
-    supervised training. The prompt text is formed as a single message including both
-    the instruction and the input. The label/target is the same message but with the
-    response attached.
-
-    Finally, both the prompt and the label get tokenized. If desired, all tokens
-    in the label that correspond to the original input prompt get masked out (default).
-    """
-    full_prompt = generate_prompt(example)
-    full_prompt_and_response = full_prompt + example["output"]
-    encoded_full_prompt = tokenizer.encode(full_prompt, max_length=max_length)
-    encoded_full_prompt_and_response = tokenizer.encode(full_prompt_and_response, eos=True, max_length=max_length)
-
-    # The labels are the full prompt with response, but with the prompt masked out
-    labels = encoded_full_prompt_and_response.clone()
-    if mask_inputs:
-        labels[: len(encoded_full_prompt)] = ignore_index
-
-    return {
-        **example,
-        "input_ids": encoded_full_prompt_and_response,
-        "input_ids_no_response": encoded_full_prompt,
-        "labels": labels,
-    }
+        idx = 0
+        for batch_idx in tqdm(range(total_batches), desc=f"writing {filename}"):
+            # Batch together samples for faster write
+            batch = dset.shard(num_shards=total_batches, index=batch_idx, contiguous=True).with_format("numpy")
+            arr_batch = np.concatenate(batch["ids"])
+            # Write into mmap
+            arr[idx : idx + len(arr_batch)] = arr_batch
+            idx += len(arr_batch)
+        arr.flush()
 
 
 if __name__ == "__main__":
