@@ -88,8 +88,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     if fabric.global_rank == 0:
         os.makedirs(out_dir, exist_ok=True)
 
-    train_data = np.memmap(str(data_dir / "train.bin"), dtype=np.uint16, mode="r")
-    val_data = np.memmap(str(data_dir / "val.bin"), dtype=np.uint16, mode="r")
+    train_data = np.memmap(str(data_dir / "train.bin"), dtype=np.int16, mode="r")
+    val_data = np.memmap(str(data_dir / "val.bin"), dtype=np.int16, mode="r")
     
     train_data = torch.from_numpy(train_data)
     val_data = torch.from_numpy(val_data)
