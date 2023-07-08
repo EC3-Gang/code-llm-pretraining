@@ -78,8 +78,8 @@ from torchscale.architecture.decoder import Decoder
 ################
 
 class CFG:
-    DEVICES: int = 8
-    BATCH_SIZE: int = 64 / DEVICES
+    DEVICES: int = 1
+    BATCH_SIZE: int = int(64 / DEVICES)
     GRADIENT_ACCUMULATE_EVERY: int = 1
     SEED: int = 42
     LEARNING_RATE: float = 6e-5
