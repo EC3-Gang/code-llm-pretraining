@@ -124,10 +124,9 @@ def train(
     out_dir: Path,
     speed_monitor: SpeedMonitor,
 ) -> None:
-    tokenizer = Tokenizer(checkpoint_dir)
     max_seq_length, longest_seq_length, longest_seq_ix = get_max_seq_length(train_data)
 
-    validate(fabric, model, val_data, tokenizer, longest_seq_length)  # sanity check
+    validate(fabric, model, val_data, longest_seq_length)  # sanity check
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
@@ -192,7 +191,7 @@ def train(
 
         if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.time()
-            val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
+            val_loss = validate(fabric, model, val_data, longest_seq_length)
             t1 = time.time() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
@@ -204,7 +203,7 @@ def train(
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
+    fabric: L.Fabric, model: GPT, val_data: np.ndarray, longest_seq_length: int
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -216,27 +215,10 @@ def validate(
         losses[k] = loss.item()
     val_loss = losses.mean()
 
-    # produce an example:
-    instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
-    fabric.print(instruction)
-    sample = {"instruction": instruction, "input": ""}
-    prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, device=model.device)
-    max_returned_tokens = len(encoded) + 100
-    output = generate(
-        model, idx=encoded, max_returned_tokens=max_returned_tokens, max_seq_length=max_returned_tokens, temperature=0.8
-    )
-    output = tokenizer.decode(output)
-    fabric.print(output)
-
-    model.reset_cache()
-
-    model.train()
-    return val_loss.item()
 
 
 def get_batch(
-    fabric: L.Fabric, data: List[Dict], longest_seq_length: int, longest_seq_ix: Optional[int] = None
+    fabric: L.Fabric, data: np.ndarray, longest_seq_length: int, longest_seq_ix: Optional[int] = None
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     ix = torch.randint(len(data), (micro_batch_size,))
     if longest_seq_ix is not None:
@@ -264,9 +246,9 @@ def get_batch(
     return x, y
 
 
-def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
+def get_max_seq_length(data: np.ndarray) -> Tuple[int, int, int]:
     # find out the minimum max_seq_length required during fine-tuning (saves memory!)
-    lengths = [len(d["input_ids"]) for d in data]
+    lengths = [len(d) for d in data]
     max_seq_length = max(lengths)
     longest_seq_ix = lengths.index(max_seq_length)
     # support easy override at the top of the file
