@@ -399,6 +399,8 @@ def decoupled_optimizer(
         optimizer = Lion(grouped_params, lr=learning_rate, betas=(beta_1, beta_2),)
     elif optimizer_type == "adamw":
         optimizer = AdamW(grouped_params, lr=learning_rate, betas=(beta_1, beta_2),)
+    elif optimizer_type == "deepspeed":
+        optimizer = 0
     elif optimizer_type == "stable_adamw":
         optimizer = StableAdamWUnfused(
             grouped_params, lr=learning_rate, betas=(beta_1, beta_2),
@@ -412,7 +414,6 @@ def decoupled_optimizer(
 
     # Return the optimizer.
     return optimizer
-
 
 # dataloaders
 
@@ -430,14 +431,14 @@ def build_dataloaders():
     Returns:
         Dataset: The processed dataset ready for training.
     """
-    tokenizer = AutoTokenizer.from_pretrained("StabilityAI/stablelm-base-alpha-3b")
-    dataset = load_dataset("codeparrot/codeparrot-clean", split="train")
+    tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
+    dataset = load_dataset("openwebtext", split="train")
 
     tokenized_dataset = dataset.map(
-        lambda example: tokenizer([t + tokenizer.eos_token for t in example["content"]]),
+        lambda example: tokenizer([t + tokenizer.eos_token for t in example["text"]]),
         batched=True,
         num_proc=CFG.NUM_CPU,
-        remove_columns=["content"],
+        remove_columns=["text"],
     )
 
     block_size = CFG.SEQ_LEN
@@ -459,7 +460,7 @@ def build_dataloaders():
         return result
 
     train_dataset = tokenized_dataset.map(
-        batched=True, num_proc=CFG.NUM_CPU,
+        group_texts, batched=True, num_proc=CFG.NUM_CPU,
     )
 
     return train_dataset
