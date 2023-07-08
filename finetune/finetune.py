@@ -507,12 +507,12 @@ def main():
     # set seed
 
     set_seed(CFG.SEED)
-    with open(CFG.CHECKPOINT_DIR / "lit_config.json") as fp:
+    with open(CFG.CHECKPOINT_DIR + "/lit_config.json") as fp:
         model_config = Config(**json.load(fp))
     # model = Kosmos.to(accelerator.device)
     # model = AutoModelForCausalLM.from_pretrained("YOUR MODEL", load_in_4bit=True, device_map="auto").to(accelerator.device)
     model = GPT(model_config)
-    model.load_state_dict(torch.load(CFG.CHECKPOINT_DIR / "lit_model.pth"))
+    model.load_state_dict(torch.load(CFG.CHECKPOINT_DIR + "/lit_model.pth"))
 
     model.to(accelerator.device)
 
