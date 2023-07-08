@@ -435,10 +435,10 @@ def build_dataloaders():
     dataset = load_dataset("codeparrot/codeparrot-clean", split="train")
 
     tokenized_dataset = dataset.map(
-        lambda example: tokenizer([t + tokenizer.eos_token for t in example["text"]]),
+        lambda example: tokenizer([t + tokenizer.eos_token for t in example["content"]]),
         batched=True,
         num_proc=CFG.NUM_CPU,
-        remove_columns=["text"],
+        remove_columns=["content"],
     )
 
     block_size = CFG.SEQ_LEN
