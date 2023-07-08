@@ -15,6 +15,7 @@ sys.path.append(str(wd))
 
 from lit_gpt import Tokenizer
 
+import torch  # make sure to import torch
 
 def prepare(
     destination_path: Path = Path("data/code"),
@@ -26,52 +27,37 @@ def prepare(
 
     tokenizer = Tokenizer(checkpoint_dir)
 
-    # number of workers in .map() call
-    # good number to use is ~order number of cpu cores // 2
     num_proc = os.cpu_count() // 2
-    # number of workers in load_dataset() call
-    # best number might be different from num_proc above as it also depends on HW speed.
-    # it is better than 1 usually though
     num_proc_load_dataset = num_proc
-
-    # takes 54GB in huggingface .cache dir, about 8M documents (8,013,769)
     dataset = load_dataset("codeparrot/codeparrot-clean", num_proc=num_proc_load_dataset)
 
-    # owt by default only contains the 'train' split, so create a test split
     split_dataset = dataset["train"].train_test_split(test_size=test_size, seed=seed, shuffle=True)
-    split_dataset["val"] = split_dataset.pop("test")  # rename the test split to val
+    split_dataset["val"] = split_dataset.pop("test")
 
     def process(example):
         ids = tokenizer.encode(example["content"]).tolist()
         ids.append(tokenizer.eos_id)
-
-        # ids = enc.encode_ordinary(example['text']) # encode_ordinary ignores any special tokens
-        # ids.append(enc.eot_token) # add the end of text token, e.g. 50256 for gpt2 bpe
-        # note: I think eot should be prepended not appended... hmm. it's called "eot" though...
         out = {"ids": ids, "len": len(ids)}
         return out
 
     # tokenize the dataset
     tokenized = split_dataset.map(process, remove_columns=["content"], desc="tokenizing the splits", num_proc=num_proc)
 
-    # concatenate all the ids in each dataset into one large file we can use for training
     for split, dset in tokenized.items():
         arr_len = np.sum(dset["len"], dtype=np.int64)
-        filename = destination_path / f"{split}.bin"
-        dtype = np.int16  # (can do since enc.max_token_value == 50256 is < 2**16)
-        arr = np.memmap(str(filename), dtype=dtype, mode="w+", shape=(arr_len,))
+        filename = destination_path / f"{split}.pt"  # change the extension to .pt
         total_batches = 1024
 
-        idx = 0
+        big_list = []  # Create empty list
+
         for batch_idx in tqdm(range(total_batches), desc=f"writing {filename}"):
             # Batch together samples for faster write
             batch = dset.shard(num_shards=total_batches, index=batch_idx, contiguous=True).with_format("numpy")
             arr_batch = np.concatenate(batch["ids"])
-            # Write into mmap
-            arr[idx : idx + len(arr_batch)] = arr_batch
-            idx += len(arr_batch)
-        arr.flush()
+            big_list.extend(arr_batch.tolist())  # Extend list with new ids
 
+        # Save data to the file
+        torch.save(big_list, str(filename))
 
 if __name__ == "__main__":
     from jsonargparse.cli import CLI
