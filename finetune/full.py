@@ -4,7 +4,6 @@ import time
 from functools import partial
 from pathlib import Path
 from typing import Optional, Tuple, Dict, List
-import numpy as np
 
 import lightning as L
 import torch
@@ -31,8 +30,8 @@ devices = 1
 override_max_seq_length = None
 
 # Hyperparameters
-learning_rate = 5e-5
-batch_size = 512 / devices
+learning_rate = 3e-3
+batch_size = 64 / devices
 micro_batch_size = 1
 gradient_accumulation_iters = batch_size // micro_batch_size
 assert gradient_accumulation_iters > 0
@@ -40,17 +39,17 @@ epoch_size = 50000  # train dataset size
 num_epochs = 5
 max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 0.02
-warmup_steps = 2 * (epoch_size // micro_batch_size) // devices // gradient_accumulation_iters # 2 epochs
+warmup_steps = 2 * (epoch_size // micro_batch_size) // devices // gradient_accumulation_iters  # 2 epochs
 
 hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
 
 
 def setup(
-    data_dir: Path = Path("data/code"),
+    data_dir: Path = Path("data/alpaca"),
     checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
-    out_dir: Path = Path("out/full/code"),
+    out_dir: Path = Path("out/full/alpaca"),
     precision: Optional[str] = None,
-    tpu: bool = True,
+    tpu: bool = False,
 ):
     if precision is None:
         precision = "32-true" if tpu else "bf16-mixed"
@@ -88,8 +87,8 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path):
     if fabric.global_rank == 0:
         os.makedirs(out_dir, exist_ok=True)
 
-    train_data = np.memmap(str(data_dir / "train.bin"), dtype=np.uint16, mode="r")
-    val_data = np.memmap(str(data_dir / "val.bin"), dtype=np.uint16, mode="r")
+    train_data = torch.load(data_dir / "train.pt")
+    val_data = torch.load(data_dir / "test.pt")
 
     config = Config.from_name(name=checkpoint_dir.name)
     checkpoint_path = checkpoint_dir / "lit_model.pth"
@@ -118,15 +117,16 @@ def train(
     fabric: L.Fabric,
     model: GPT,
     optimizer: torch.optim.Optimizer,
-    train_data: np.ndarray,
-    val_data: np.ndarray,
+    train_data: List[Dict],
+    val_data: List[Dict],
     checkpoint_dir: Path,
     out_dir: Path,
     speed_monitor: SpeedMonitor,
 ) -> None:
+    tokenizer = Tokenizer(checkpoint_dir)
     max_seq_length, longest_seq_length, longest_seq_ix = get_max_seq_length(train_data)
 
-    validate(fabric, model, val_data, longest_seq_length)  # sanity check
+    validate(fabric, model, val_data, tokenizer, longest_seq_length)  # sanity check
 
     with torch.device("meta"):
         meta_model = GPT(model.config)
@@ -191,7 +191,7 @@ def train(
 
         if not is_accumulating and step_count % eval_interval == 0:
             t0 = time.time()
-            val_loss = validate(fabric, model, val_data, longest_seq_length)
+            val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
             t1 = time.time() - t0
             speed_monitor.eval_end(t1)
             fabric.print(f"step {iter_num}: val loss {val_loss:.4f}, val time: {t1 * 1000:.2f}ms")
@@ -203,7 +203,7 @@ def train(
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_data: np.ndarray, longest_seq_length: int
+    fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
 ) -> torch.Tensor:
     fabric.print("Validating ...")
     model.eval()
@@ -215,10 +215,27 @@ def validate(
         losses[k] = loss.item()
     val_loss = losses.mean()
 
+    # produce an example:
+    instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
+    fabric.print(instruction)
+    sample = {"instruction": instruction, "input": ""}
+    prompt = generate_prompt(sample)
+    encoded = tokenizer.encode(prompt, device=model.device)
+    max_returned_tokens = len(encoded) + 100
+    output = generate(
+        model, idx=encoded, max_returned_tokens=max_returned_tokens, max_seq_length=max_returned_tokens, temperature=0.8
+    )
+    output = tokenizer.decode(output)
+    fabric.print(output)
+
+    model.reset_cache()
+
+    model.train()
+    return val_loss.item()
 
 
 def get_batch(
-    fabric: L.Fabric, data: np.ndarray, longest_seq_length: int, longest_seq_ix: Optional[int] = None
+    fabric: L.Fabric, data: List[Dict], longest_seq_length: int, longest_seq_ix: Optional[int] = None
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     ix = torch.randint(len(data), (micro_batch_size,))
     if longest_seq_ix is not None:
@@ -239,18 +256,16 @@ def get_batch(
     x = torch.stack([pad_right(x, pad_id=0) for x in input_ids])
     y = torch.stack([pad_right(x, pad_id=-1) for x in labels])
 
-    if fabric.device.type in ("mps", "xla"):
-        x, y = fabric.to_device((x, y))
-    else:
+    if fabric.device.type == "cuda" and x.device.type == "cpu":
         x, y = fabric.to_device((x.pin_memory(), y.pin_memory()))
+    else:
+        x, y = fabric.to_device((x, y))
     return x, y
 
 
-def get_max_seq_length(data: np.ndarray) -> Tuple[int, int, int]:
+def get_max_seq_length(data: List[Dict]) -> Tuple[int, int, int]:
     # find out the minimum max_seq_length required during fine-tuning (saves memory!)
-    print(d[1] for d in data)
-    time.sleep(30)
-    lengths = [len(d) for d in data]
+    lengths = [len(d["input_ids"]) for d in data]
     max_seq_length = max(lengths)
     longest_seq_ix = lengths.index(max_seq_length)
     # support easy override at the top of the file
