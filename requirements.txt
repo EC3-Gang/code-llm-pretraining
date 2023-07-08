@@ -27,4 +27,4 @@ tensorboard
 wandb
 lion-pytorch
 fairscale
-
+transformers
