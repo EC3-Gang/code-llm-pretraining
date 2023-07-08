@@ -86,7 +86,7 @@ class CFG:
     WEIGHT_DECAY: float = 0.1
     SEQ_LEN: int = 8192
     NUM_CPU: int = multiprocessing.cpu_count()
-    USE_DEEPSPEED: bool = True
+    USE_DEEPSPEED: bool = False
     USE_FSDP: bool = False
     USE_PRETOKENIZED: bool = False
     USE_ACTIVATION_CHECKPOINTING: bool = False
