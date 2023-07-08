@@ -8,7 +8,6 @@ from typing import Union
 import numpy as np
 from datasets import load_dataset, concatenate_datasets  # huggingface datasets
 from tqdm import tqdm
-import json
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
