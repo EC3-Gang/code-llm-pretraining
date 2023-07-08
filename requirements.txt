@@ -28,3 +28,4 @@ wandb
 lion-pytorch
 fairscale
 transformers
+torchscale

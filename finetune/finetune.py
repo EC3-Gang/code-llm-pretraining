@@ -66,7 +66,7 @@ nf4_config = BitsAndBytesConfig(
 #######################
 
 
-from torchscale.architecture import Decoder
+from torchscale.architecture.decoder import Decoder
 
 
 
