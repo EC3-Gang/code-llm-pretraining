@@ -24,7 +24,7 @@ from torch.distributed.fsdp import (
     ShardingStrategy,
 )
 from accelerate import Accelerator
-from accelerate.utils import DummyOptim, DummyScheduler, InitProcessGroupKwargs
+from accelerate.utils import InitProcessGroupKwargs
 from datasets import concatenate_datasets, load_dataset
 from lion_pytorch import Lion
 from torch.nn import LayerNorm
@@ -400,8 +400,6 @@ def decoupled_optimizer(
         optimizer = Lion(grouped_params, lr=learning_rate, betas=(beta_1, beta_2),)
     elif optimizer_type == "adamw":
         optimizer = AdamW(grouped_params, lr=learning_rate, betas=(beta_1, beta_2),)
-    elif optimizer_type == "deepspeed":
-        optimizer = DummyOptim(grouped_params, lr=learning_rate, betas=(beta_1, beta_2),)
     elif optimizer_type == "stable_adamw":
         optimizer = StableAdamWUnfused(
             grouped_params, lr=learning_rate, betas=(beta_1, beta_2),
@@ -567,11 +565,7 @@ def main():
     accelerator.print(f"Num warmup steps: {NUM_WARMUP_STEPS}")
 
     if CFG.USE_DEEPSPEED:
-        lr_scheduler = DummyScheduler(
-            optim, 
-            total_num_steps=max_train_steps * accelerator.num_processes, 
-            warmup_num_steps=NUM_WARMUP_STEPS
-        )
+        raise NotImplementedError
     else:
         lr_scheduler = get_lr_scheduler_with_warmup(
             optimizer=optim,
