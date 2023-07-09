@@ -8,6 +8,9 @@
 
 This experiment is mainly to experiment with domain specific pretraining in the context of code generation language models.
 
+## This project has been abandoned in favour of a JAX implementation 
+
+
 ## Model used:
 StableLM Base Alpha 3B
 
